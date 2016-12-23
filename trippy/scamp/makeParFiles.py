@@ -64,7 +64,7 @@ def writeParam(fileName='def.param',numAps=1):
             'FLUX_RADIUS',
             'FLUXERR_AUTO',
             'FLUX_ISOCOR',
-            'FLUXERR_ISOCOR'
+            'FLUXERR_ISOCOR',
             '',
             'FLAGS',
             '#FLAGS_WEIGHT',

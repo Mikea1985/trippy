@@ -64,23 +64,15 @@ class pillPhot:
 
 
     def roundAperCorr(self,r):
-        """
-        Return round aperture correction at radius r interpolated from values computed in computeRoundAperCorrFromSource.
-        """
         if self.aperFunc<>None:
             return self.aperFunc(r)-num.min(self.aperMags)
         else:
             raise Exception('Need to call computeRoundAperCorrFromSource first')
 
-    def computeRoundAperCorrFromSource(self,x,y,radii,skyRadius,width=20.,mode='smart',displayAperture=False,display=False):
+    def computeRoundAperCorrFromSource(self,x,y,radii,skyRadius,width=20.,mode='mode',displayAperture=False,display=False):
         """
-        Compute apeture corrections at the specified star coordinates and the specified radii numpy array.
-
-        skyRadius is the radius outside of which the background is estimated.
-        mode is the method by which the background is estimated.
-        width is the width of the cutout. Make this bigger than skyRadius!
-        displayAperture=True to see the aperture at each radius.
-        display=True to see a radial aperture correction plot.
+        Compute apeture corrections at the specified star coordinates (iraf coordinates!)
+        and the specified radii
         """
 
         #if radii[0]*width<=skyRadius:
@@ -105,8 +97,6 @@ class pillPhot:
 
     def SNR(self,gain=1.64,readNoise=3.82,useBGstd=False,nImStacked=1,verbose=False):
         """
-        Compute the SNR and uncertainty of the flux measurement.
-
         Switch useBGstd to true to use the measured standard deviation of
         background pixel values as a measure of the background+readnoise
         uncertainty instead of the background flux. Better for IR data. This
@@ -133,10 +123,7 @@ class pillPhot:
     def __call__(self,xi,yi,radius=4.,l=5.,a=0.01,width=20.,skyRadius=8.,zpt=27.0,exptime=1.,
                  enableBGSelection=False, display=False,
                  verbose=False,backupMode='fraserMode',trimBGHighPix=False,zscale=True):
-        """
-        Perform the actual photometry.
-
-        angle in degrees clockwise +-90 degrees from +x
+        """angle in degrees counterclockwise from +x
         Length in pixels.
         Coordinates are in iraf coordinates, not numpy.
 
@@ -321,14 +308,14 @@ class pillPhot:
         repData=expand2d(data,self.repFact)
         (A,B)=repData.shape
 
-         if ((x<w) and (y<w)):
-           cx=num.array([x*self.repFact, y*self.repFact])
-         elif (x<w):
-           cx=num.array([x*self.repFact, (y-int(y)+w)*self.repFact])
-         elif (y<w):
-           cx=num.array([(x-int(x)+w)*self.repFact, y*self.repFact])
-         else: 
-           cx=num.array([(x-int(x)+w)*self.repFact, (y-int(y)+w)*self.repFact])
+        if ((x-1<w) and (y-1<w)):
+          cx=num.array([x*self.repFact, y*self.repFact])
+        elif (x-1<w):
+          cx=num.array([x*self.repFact, (y-int(y)+w)*self.repFact])
+        elif (y-1<w):
+          cx=num.array([(x-int(x)+w)*self.repFact, y*self.repFact])
+        else: 
+          cx=num.array([(x-int(x)+w)*self.repFact, (y-int(y)+w)*self.repFact])
         h=self.repFact*(radius**2+(l/2.)**2)**0.5
         beta=num.arctan2(num.array(radius),num.array(l/2.))
         
@@ -403,7 +390,6 @@ class pillPhot:
 
         #print p0,p1,radius*self.repFact
         #print x0,x1,x2,x3
-
         self.mask=map*1.
         if retObj:
             return map*repData
@@ -424,9 +410,6 @@ class pillPhot:
 
         
 def bgselect(event):
-    """
-    I don't think this is actually used. Haven't confirmed yet.
-    """
     global CA
     print CA.get_xlim()
     print CA.get_ylim()
