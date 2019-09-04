@@ -123,6 +123,27 @@ def lnprobDouble(r,dat,lims,psf,ue,useLinePSF,verbose=False):
     return chi
 
 
+def lnprobKnownDouble(r, dat, offs, lims, psf, ue, useLinePSF, verbose=False):
+    '''For use with fitKnownDoubleWithModelPSF'''
+    psf.nForFitting += 1
+    (A, B) = dat.shape
+    (X, Y, AMP) = r
+    (x, y, brat) = offs
+    amp = AMP * brat
+    if (amp <= 0 or AMP <= 0 or X < 0 or X > B or x < 0 or x > B or Y < 0
+        or Y > A or y < 0 or y > A):
+      return -np.inf
+    diff = psf.remove(X, Y, AMP, dat, useLinePSF=useLinePSF)
+    diff = psf.remove(x, y, amp, diff, useLinePSF=useLinePSF)
+    chi = - 0.5 * np.sum((diff ** 2 / ue ** 2)[lims[0]:lims[1],
+                                               lims[2]:lims[3]])
+    if verbose:
+        print('{:6d} '.format(psf.nForFitting) +
+              #'{: 8.3f} {: 8.3f} {: 8.3f} '.format(x, y, amp) +
+              '{: 8.3f} {: 8.3f} {: 8.3f} {: 10.3f}'.format(X, Y, AMP, chi))
+    return chi
+
+
 class LSfitter(object):
 
     def __init__(self,psf,imageData):
@@ -488,6 +509,77 @@ class MCMCfitter:
 
         sampler = emcee.EnsembleSampler(nWalkers,nDim,lnprobDouble,args=[dat,(ai,bi,ci,di),self.psf,ue,self.useLinePSF,verbose])
         pos, prob, state = sampler.run_mcmc(r0,nBurn)
+        sampler.reset()
+        pos, prob, state = sampler.run_mcmc(pos, nStep, rstate0=state)
+        self.samps = sampler.chain
+        self.probs = sampler.lnprobability
+        self.dat = np.copy(dat)
+        self.fitted = True
+
+    def fitKnownDoubleWithModelPSF(self, x_in, y_in, dX_in, dY_in, bRat_in,
+                                   m_in=-1., bg=None, fitWidth=20, nWalkers=30,
+                                   nBurn=50, nStep=100, useErrorMap=False,
+                                   useLinePSF=False,verbose=False):
+        """
+        Using emcee (It's hammer time!) a binary of known orientation/ratio
+        is fit using the provided psf to find the best x,y and amplitude,
+        and confidence range on the fitted parameters.
+
+        x_in, y_in, m_in - Initial guess: centroid & amplitude of primary
+        dX_in, dY_in - Initial guess: 2ndary offset relative to primary
+        bRat_in - brightness ratio
+        fitWidth - the width +- of x_in/y_in of the data used in the fit
+        nWalkers, nBurn, nStep - emcee fitting paramters.
+                                 If you don't know what these are RTFM
+        bg - the background of the image. Needed for the uncertainty table.
+             **Defaults to None.** When set to default, it will invoke
+             the background measurement and apply that.
+             Otherwise, it assumes you are dealing with
+             background subtracted data already.
+        useErrorMap - if true, a simple pixel uncertainty map is used in
+                      the fit. This is adopted as
+                      ue_ij=(imageData_ij+bg)**0.5,
+                      that is, the poisson noise estimate.
+                      Note the fit confidence range
+                      is only honest if useErrorMap=True.
+        useLinePSF - use the TSF? If not, use the PSF
+        verbose - if set to true, lots of information printed to screen
+        """
+
+        self.useLinePSF = useLinePSF
+
+        (A, B) = self.imageData.shape
+        ai = max(0, int(y_in + dY_in / 2) - fitWidth)
+        bi = min(A, int(y_in + dY_in / 2) + fitWidth + 1)
+        ci = max(0, int(x_in + dX_in / 2) - fitWidth)
+        di = min(B, int(x_in + dX_in / 2) + fitWidth + 1)
+        dat = np.copy(self.imageData)
+
+        if bg is None:
+            bgf = bgFinder.bgFinder(self.imageData)
+            bg = bgf.smartBackground()
+            dat -= bg
+
+        if not useErrorMap:
+            ue = dat * 0.0 + 1.
+        else:
+            ue = (dat + bg) ** 0.5
+
+        if m_in == -1.:
+            if useLinePSF:
+                m_in = np.sum(dat) / np.sum(self.psf.longPSF)
+            else:
+                m_in = np.sum(dat) / np.sum(self.psf.fullPSF)
+
+        nDim = 3
+        r0 = np.array([np.array([x_in, y_in, m_in])
+                      + sci.randn(nDim) * np.array([1., 1., m_in * 0.4])
+                      for _ in range(nWalkers)])
+        arguments = [dat, (dX_in, dY_in, bRat_in), (ai, bi, ci, di),
+                     self.psf, ue, self.useLinePSF, verbose]
+        sampler = emcee.EnsembleSampler(nWalkers, nDim, lnprobKnownDouble,
+                                        args=arguments)
+        pos, _, state = sampler.run_mcmc(r0, nBurn)
         sampler.reset()
         pos, prob, state = sampler.run_mcmc(pos, nStep, rstate0=state)
         self.samps = sampler.chain
