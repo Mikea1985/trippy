@@ -542,9 +542,19 @@ class modelPSF:
 
             #below steps through the pixels taking numMedPix
             (A,B) = repRads.shape
+            print(A,B,'HELLO!!!!!')
+            print(A,B,'HELLO!!!!!')
+            print(A,B,'HELLO!!!!!')
+            print(A,B,'HELLO!!!!!')
+            print(A,B,'HELLO!!!!!')
+            print(A,B,'HELLO!!!!!')
+            print(A,B,'HELLO!!!!!')
             rr = repRads.reshape(A*B)
             rim = im.reshape(A*B)
-            s = np.max(im)
+            Ah = int(A / 2)
+            Bh = int(B / 2)
+            Ch = int(5 * self.repFact)
+            s = np.max(im[Ah - Ch:Ah + Ch, Bh - Ch:Bh + Ch])
             args = np.argsort(rr)
             for ii in range(len(args)-numMedPix):
                 if method == 'median':
