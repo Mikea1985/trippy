@@ -542,13 +542,6 @@ class modelPSF:
 
             #below steps through the pixels taking numMedPix
             (A,B) = repRads.shape
-            print(A,B,'HELLO!!!!!')
-            print(A,B,'HELLO!!!!!')
-            print(A,B,'HELLO!!!!!')
-            print(A,B,'HELLO!!!!!')
-            print(A,B,'HELLO!!!!!')
-            print(A,B,'HELLO!!!!!')
-            print(A,B,'HELLO!!!!!')
             rr = repRads.reshape(A*B)
             rim = im.reshape(A*B)
             Ah = int(A / 2)
